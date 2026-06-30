@@ -15,33 +15,33 @@ namespace Phphue\State;
  */
 class LightState
 {
-    public const BRIGHTNESS_MIN = 0.0;
+    public const float BRIGHTNESS_MIN = 0.0;
 
-    public const BRIGHTNESS_MAX = 100.0;
+    public const float BRIGHTNESS_MAX = 100.0;
 
-    public const MIREK_MIN = 153;
+    public const int MIREK_MIN = 153;
 
-    public const MIREK_MAX = 500;
+    public const int MIREK_MAX = 500;
 
-    public const XY_MIN = 0.0;
+    public const float XY_MIN = 0.0;
 
-    public const XY_MAX = 1.0;
+    public const float XY_MAX = 1.0;
 
-    public const ALERT_BREATHE = 'breathe';
+    public const string ALERT_BREATHE = 'breathe';
 
-    public const EFFECT_NO_EFFECT = 'no_effect';
+    public const string EFFECT_NO_EFFECT = 'no_effect';
 
-    public const EFFECT_CANDLE = 'candle';
+    public const string EFFECT_CANDLE = 'candle';
 
-    public const EFFECT_FIRE = 'fire';
+    public const string EFFECT_FIRE = 'fire';
 
-    public const EFFECT_SPARKLE = 'sparkle';
+    public const string EFFECT_SPARKLE = 'sparkle';
 
-    public const EFFECT_GLISTEN = 'glisten';
+    public const string EFFECT_GLISTEN = 'glisten';
 
-    public const EFFECT_OPAL = 'opal';
+    public const string EFFECT_OPAL = 'opal';
 
-    public const EFFECT_PRISM = 'prism';
+    public const string EFFECT_PRISM = 'prism';
 
     /**
      * @var array<string,mixed>

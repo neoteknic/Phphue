@@ -302,9 +302,7 @@ class Client
      */
     public function getBridge(): ?Bridge
     {
-        $bridges = $this->getBridges();
-
-        return $bridges[0] ?? null;
+        return array_first($this->getBridges());
     }
 
     /** @return BridgeHome[] */

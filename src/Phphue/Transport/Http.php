@@ -37,7 +37,7 @@ class Http implements TransportInterface
         503 => BridgeBusyException::class,
     ];
 
-    public function __construct(protected Client $client)
+    public function __construct(protected readonly Client $client)
     {
     }
 
@@ -60,9 +60,7 @@ class Http implements TransportInterface
         return $this;
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[\Override]
     public function sendRequest(string $address, string $method = self::METHOD_GET, array|object|null $body = null): array
     {
         $response = $this->getJsonResponse($address, $method, $body);
@@ -90,9 +88,7 @@ class Http implements TransportInterface
         return [];
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[\Override]
     public function sendRaw(string $address, string $method = self::METHOD_GET, array|object|null $body = null): mixed
     {
         $url = $this->buildRequestUrl($address);

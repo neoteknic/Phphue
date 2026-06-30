@@ -14,7 +14,7 @@ use Phphue\Transport\TransportInterface;
  */
 class DeleteResource implements CommandInterface
 {
-    public function __construct(protected string $type, protected string $id)
+    public function __construct(protected readonly string $type, protected readonly string $id)
     {
     }
 
@@ -31,6 +31,7 @@ class DeleteResource implements CommandInterface
     /**
      * @return array<int,\stdClass> Deleted resource identifiers
      */
+    #[\Override]
     public function send(Client $client): array
     {
         return $client->getTransport()->sendRequest(

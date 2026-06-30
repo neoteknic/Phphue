@@ -11,13 +11,13 @@ namespace Phphue\Transport;
  */
 interface TransportInterface
 {
-    public const METHOD_GET = 'GET';
+    public const string METHOD_GET = 'GET';
 
-    public const METHOD_POST = 'POST';
+    public const string METHOD_POST = 'POST';
 
-    public const METHOD_PUT = 'PUT';
+    public const string METHOD_PUT = 'PUT';
 
-    public const METHOD_DELETE = 'DELETE';
+    public const string METHOD_DELETE = 'DELETE';
 
     /**
      * Send a CLIP v2 request and return the decoded "data" payload.

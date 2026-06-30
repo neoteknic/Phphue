@@ -21,7 +21,7 @@ use Phphue\Transport\Exception\ConnectionException;
  */
 class EventStream
 {
-    public const PATH = '/eventstream/clip/v2';
+    public const string PATH = '/eventstream/clip/v2';
 
     protected string $buffer = '';
 
@@ -33,7 +33,7 @@ class EventStream
     /**
      * @param int $maxSeconds Maximum listening duration in seconds (0 = no limit)
      */
-    public function __construct(protected Client $client, protected int $maxSeconds = 0)
+    public function __construct(protected readonly Client $client, protected readonly int $maxSeconds = 0)
     {
         if (! extension_loaded('curl')) {
             throw new \BadFunctionCallException('The cURL extension is required for the event stream.');
@@ -84,10 +84,6 @@ class EventStream
         $ok = curl_exec($curl);
         $errno = curl_errno($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-
-        if (PHP_VERSION_ID < 80500) {
-            curl_close($curl);
-        }
 
         // CURLE_ABORTED_BY_CALLBACK (42) and operation timeout (28) are expected stops.
         if ($ok === false && ! in_array($errno, [0, 28, 42], true)) {

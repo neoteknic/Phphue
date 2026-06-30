@@ -16,7 +16,7 @@ use Phphue\Transport\TransportInterface;
  */
 class GetResources implements CommandInterface
 {
-    public function __construct(protected string $type)
+    public function __construct(protected readonly string $type)
     {
     }
 
@@ -28,6 +28,7 @@ class GetResources implements CommandInterface
     /**
      * @return AbstractResource[]
      */
+    #[\Override]
     public function send(Client $client): array
     {
         $data = $client->getTransport()->sendRequest(

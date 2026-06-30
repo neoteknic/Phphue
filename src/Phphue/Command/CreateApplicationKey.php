@@ -23,15 +23,16 @@ use Phphue\Transport\TransportInterface;
 class CreateApplicationKey implements CommandInterface
 {
     /** Bridge error type returned while the link button has not been pressed. */
-    public const ERROR_LINK_BUTTON = 101;
+    public const int ERROR_LINK_BUTTON = 101;
 
     public function __construct(
-        protected string $appName,
-        protected string $instanceName = 'php',
-        protected bool $generateClientKey = false
+        protected readonly string $appName,
+        protected readonly string $instanceName = 'php',
+        protected readonly bool $generateClientKey = false
     ) {
     }
 
+    #[\Override]
     public function send(Client $client): \stdClass
     {
         $body = [
@@ -50,7 +51,7 @@ class CreateApplicationKey implements CommandInterface
 
         // Legacy envelope is an array with a single element.
         if (is_array($response)) {
-            $response = $response[0] ?? null;
+            $response = array_first($response);
         }
 
         if (is_object($response) && isset($response->error)) {

@@ -15,9 +15,9 @@ class SmartScene extends AbstractResource
 {
     use HasMetadata;
 
-    public const STATE_ACTIVE = 'active';
+    public const string STATE_ACTIVE = 'active';
 
-    public const STATE_INACTIVE = 'inactive';
+    public const string STATE_INACTIVE = 'inactive';
 
     public function getState(): ?string
     {

@@ -18,9 +18,9 @@ class EntertainmentConfiguration extends AbstractResource
 {
     use HasMetadata;
 
-    public const STATUS_ACTIVE = 'active';
+    public const string STATUS_ACTIVE = 'active';
 
-    public const STATUS_INACTIVE = 'inactive';
+    public const string STATUS_INACTIVE = 'inactive';
 
     public function getStatus(): ?string
     {

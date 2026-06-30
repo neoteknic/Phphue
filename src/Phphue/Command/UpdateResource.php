@@ -17,8 +17,11 @@ class UpdateResource implements CommandInterface
     /**
      * @param array<string,mixed>|object $body
      */
-    public function __construct(protected string $type, protected string $id, protected array|object $body)
-    {
+    public function __construct(
+        protected readonly string $type,
+        protected readonly string $id,
+        protected readonly array|object $body
+    ) {
     }
 
     public function getType(): string
@@ -34,6 +37,7 @@ class UpdateResource implements CommandInterface
     /**
      * @return array<int,\stdClass> Updated resource identifiers
      */
+    #[\Override]
     public function send(Client $client): array
     {
         return $client->getTransport()->sendRequest(

@@ -17,7 +17,7 @@ class CreateResource implements CommandInterface
     /**
      * @param array<string,mixed>|object $body
      */
-    public function __construct(protected string $type, protected array|object $body)
+    public function __construct(protected readonly string $type, protected readonly array|object $body)
     {
     }
 
@@ -29,6 +29,7 @@ class CreateResource implements CommandInterface
     /**
      * @return array<int,\stdClass> Created resource identifiers
      */
+    #[\Override]
     public function send(Client $client): array
     {
         return $client->getTransport()->sendRequest(

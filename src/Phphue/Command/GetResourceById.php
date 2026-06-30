@@ -17,7 +17,7 @@ use Phphue\Transport\TransportInterface;
  */
 class GetResourceById implements CommandInterface
 {
-    public function __construct(protected string $type, protected string $id)
+    public function __construct(protected readonly string $type, protected readonly string $id)
     {
     }
 
@@ -31,6 +31,7 @@ class GetResourceById implements CommandInterface
         return $this->id;
     }
 
+    #[\Override]
     public function send(Client $client): AbstractResource
     {
         $data = $client->getTransport()->sendRequest(

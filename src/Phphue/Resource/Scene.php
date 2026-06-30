@@ -15,11 +15,11 @@ class Scene extends AbstractResource
 {
     use HasMetadata;
 
-    public const ACTION_ACTIVE = 'active';
+    public const string ACTION_ACTIVE = 'active';
 
-    public const ACTION_DYNAMIC_PALETTE = 'dynamic_palette';
+    public const string ACTION_DYNAMIC_PALETTE = 'dynamic_palette';
 
-    public const ACTION_STATIC = 'static';
+    public const string ACTION_STATIC = 'static';
 
     /**
      * Group (room/zone) this scene belongs to ({rid, rtype}).

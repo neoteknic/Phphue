@@ -19,6 +19,7 @@ class GetAllResources implements CommandInterface
     /**
      * @return AbstractResource[]
      */
+    #[\Override]
     public function send(Client $client): array
     {
         $data = $client->getTransport()->sendRequest(

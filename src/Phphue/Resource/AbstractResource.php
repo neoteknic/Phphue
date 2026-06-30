@@ -17,7 +17,7 @@ use Phphue\Client;
  */
 abstract class AbstractResource
 {
-    public function __construct(protected Client $client, protected \stdClass $data)
+    public function __construct(protected readonly Client $client, protected \stdClass $data)
     {
     }
 

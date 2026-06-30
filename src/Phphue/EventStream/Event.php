@@ -18,15 +18,15 @@ use Phphue\Resource\ResourceFactory;
  */
 class Event
 {
-    public const TYPE_ADD = 'add';
+    public const string TYPE_ADD = 'add';
 
-    public const TYPE_UPDATE = 'update';
+    public const string TYPE_UPDATE = 'update';
 
-    public const TYPE_DELETE = 'delete';
+    public const string TYPE_DELETE = 'delete';
 
-    public const TYPE_ERROR = 'error';
+    public const string TYPE_ERROR = 'error';
 
-    public function __construct(protected Client $client, protected \stdClass $payload)
+    public function __construct(protected readonly Client $client, protected readonly \stdClass $payload)
     {
     }
 

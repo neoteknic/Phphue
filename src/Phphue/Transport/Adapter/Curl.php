@@ -24,23 +24,22 @@ class Curl implements AdapterInterface
      * @param string|null $caFile Optional CA bundle to pin the Hue bridge certificate
      */
     public function __construct(
-        protected bool $sslVerify = false,
-        protected int $timeout = 10,
-        protected ?string $caFile = null
+        protected readonly bool $sslVerify = false,
+        protected readonly int $timeout = 10,
+        protected readonly ?string $caFile = null
     ) {
         if (! extension_loaded('curl')) {
             throw new \BadFunctionCallException('The cURL extension is required.');
         }
     }
 
+    #[\Override]
     public function open(): void
     {
         $this->curl = curl_init();
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[\Override]
     public function send(string $address, string $method, ?string $body = null, array $headers = []): string|bool
     {
         curl_setopt($this->curl, CURLOPT_URL, $address);
@@ -70,11 +69,13 @@ class Curl implements AdapterInterface
         return curl_exec($this->curl);
     }
 
+    #[\Override]
     public function getHttpStatusCode(): int
     {
         return (int) curl_getinfo($this->curl, CURLINFO_RESPONSE_CODE);
     }
 
+    #[\Override]
     public function getContentType(): mixed
     {
         return curl_getinfo($this->curl, CURLINFO_CONTENT_TYPE);
@@ -85,11 +86,11 @@ class Curl implements AdapterInterface
         return $this->curl;
     }
 
+    #[\Override]
     public function close(): void
     {
-        if (PHP_VERSION_ID < 80500 && $this->curl instanceof CurlHandle) {
-            curl_close($this->curl);
-        }
+        // curl_close() is a no-op since PHP 8.0 and the handle is freed on unset;
+        // the minimum supported runtime is PHP 8.5, so simply drop the reference.
         $this->curl = null;
     }
 }

@@ -56,14 +56,14 @@ trait HasServices
      */
     public function getGroupedLight(): ?GroupedLight
     {
-        $services = $this->getServicesByType('grouped_light');
+        $service = array_first($this->getServicesByType('grouped_light'));
 
-        if (! isset($services[0]->rid)) {
+        if (! isset($service->rid)) {
             return null;
         }
 
         /** @var GroupedLight $groupedLight */
-        $groupedLight = $this->client->getResourceById('grouped_light', (string) $services[0]->rid);
+        $groupedLight = $this->client->getResourceById('grouped_light', (string) $service->rid);
 
         return $groupedLight;
     }
