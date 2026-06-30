@@ -1,0 +1,9 @@
+parameters:
+    level: 6
+    paths:
+        - src
+
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - identifier: missingType.iterableValue
+        - '#Cannot cast mixed to string.#'

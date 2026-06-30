@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         bootstrap="./tests/bootstrap.php"
+         colors="true"
+         beStrictAboutTestsThatDoNotTestAnything="false"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         cacheDirectory=".phpunit.cache"
+         requireCoverageMetadata="false"
+>
+  <testsuites>
+    <testsuite name="Phphue Test Suite">
+      <directory>./tests</directory>
+    </testsuite>
+  </testsuites>
+
+  <logging/>
+
+  <source>
+    <include>
+      <directory>./src</directory>
+    </include>
+  </source>
+
+</phpunit>
