@@ -65,6 +65,32 @@ $light->setColorTemperature(300);   // mired/mirek
 $light->off();
 ```
 
+### Dynamic effects
+
+The Hue API V2 exposes built-in dynamic effects (`candle`, `fire`, `sparkle`,
+`glisten`, `opal`, `prism`) — there is no V1 equivalent beyond the old colour loop.
+
+```php
+use Phphue\State\LightState;
+
+// Which effects does this specific light support?
+$light->getEffectValues();          // ['no_effect', 'candle', 'sparkle', ...]
+
+// Start an effect
+$light->setEffect(LightState::EFFECT_SPARKLE);
+
+// The effects_v2 variant lets you tune the speed (0-1)
+$light->setEffectV2(LightState::EFFECT_PRISM, speed: 0.6);
+
+// Stop the running effect
+$light->setEffect(LightState::EFFECT_NO_EFFECT);
+
+// ...or combine it with other state in one PUT
+$light->applyState(
+    (new LightState())->on()->brightness(80)->effectV2(LightState::EFFECT_FIRE, 0.4)
+);
+```
+
 ## Architecture
 
 | Layer | Classes | Role |

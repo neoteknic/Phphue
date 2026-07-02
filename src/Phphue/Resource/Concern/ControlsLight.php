@@ -109,4 +109,22 @@ trait ControlsLight
     {
         return $this->applyState((new LightState())->colorTemperature($mirek));
     }
+
+    /**
+     * Apply a dynamic effect (candle, fire, sparkle, ...).
+     *
+     * Pass LightState::EFFECT_NO_EFFECT to clear the running effect.
+     */
+    public function setEffect(string $effect): static
+    {
+        return $this->applyState((new LightState())->effect($effect));
+    }
+
+    /**
+     * Apply a dynamic effect through `effects_v2`, optionally tuning its speed (0-1).
+     */
+    public function setEffectV2(string $effect, ?float $speed = null): static
+    {
+        return $this->applyState((new LightState())->effectV2($effect, $speed));
+    }
 }

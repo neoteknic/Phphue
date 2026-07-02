@@ -43,6 +43,10 @@ class LightState
 
     public const string EFFECT_PRISM = 'prism';
 
+    public const float EFFECT_SPEED_MIN = 0.0;
+
+    public const float EFFECT_SPEED_MAX = 1.0;
+
     /**
      * @var array<string,mixed>
      */
@@ -195,6 +199,34 @@ class LightState
     public function effect(string $effect): static
     {
         $this->params['effects'] = ['effect' => $effect];
+
+        return $this;
+    }
+
+    /**
+     * Apply a light effect through the `effects_v2` object.
+     *
+     * Unlike {@see effect()}, this variant lets you tune the effect's speed
+     * (0-1) via the `parameters` block. Not every light supports every effect
+     * or the speed parameter; check {@see \Phphue\Resource\Light::getEffectValues()}.
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function effectV2(string $effect, ?float $speed = null): static
+    {
+        $action = ['effect' => $effect];
+
+        if ($speed !== null) {
+            if (! (self::EFFECT_SPEED_MIN <= $speed && $speed <= self::EFFECT_SPEED_MAX)) {
+                throw new \InvalidArgumentException(
+                    'Effect speed must be between ' . self::EFFECT_SPEED_MIN . ' and ' . self::EFFECT_SPEED_MAX
+                );
+            }
+
+            $action['parameters'] = ['speed' => $speed];
+        }
+
+        $this->params['effects_v2'] = ['action' => $action];
 
         return $this;
     }
