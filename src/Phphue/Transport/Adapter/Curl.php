@@ -36,6 +36,16 @@ class Curl implements AdapterInterface
     #[\Override]
     public function open(): void
     {
+        if ($this->curl instanceof CurlHandle) {
+            // Reuse the existing handle so its kept-alive TCP/TLS connection is
+            // reused across requests. curl_reset() clears the options set by the
+            // previous request - a stale PUT body must not leak into a following
+            // GET - without dropping the pooled connection.
+            curl_reset($this->curl);
+
+            return;
+        }
+
         $this->curl = curl_init();
     }
 
@@ -47,6 +57,8 @@ class Curl implements AdapterInterface
         curl_setopt($this->curl, CURLOPT_HEADER, false);
         curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($this->curl, CURLOPT_TIMEOUT, $this->timeout);
+        // Keep the connection warm between requests to the same bridge.
+        curl_setopt($this->curl, CURLOPT_TCP_KEEPALIVE, 1);
 
         if (preg_match('#^https://#i', $address) === 1) {
             curl_setopt($this->curl, CURLOPT_SSL_VERIFYPEER, $this->sslVerify);
@@ -89,8 +101,24 @@ class Curl implements AdapterInterface
     #[\Override]
     public function close(): void
     {
+        // Intentionally a no-op: the handle - and its pooled TCP/TLS connection -
+        // is kept alive so the next request to the same bridge reuses it instead
+        // of paying for a fresh TCP + TLS handshake. The handle is released in
+        // the destructor (or explicitly via disconnect()).
+    }
+
+    /**
+     * Explicitly drop the persistent handle and close its connection.
+     */
+    public function disconnect(): void
+    {
         // curl_close() is a no-op since PHP 8.0 and the handle is freed on unset;
         // the minimum supported runtime is PHP 8.5, so simply drop the reference.
         $this->curl = null;
+    }
+
+    public function __destruct()
+    {
+        $this->disconnect();
     }
 }

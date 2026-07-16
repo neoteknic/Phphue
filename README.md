@@ -97,7 +97,7 @@ $light->applyState(
 |-------|---------|------|
 | Client | `Phphue\Client` | Holds the host + application key, exposes accessors, sends commands |
 | Commands | `Phphue\Command\*` | Generic CRUD over any resource type (`GetResources`, `GetResourceById`, `CreateResource`, `UpdateResource`, `DeleteResource`, `GetAllResources`, `CreateApplicationKey`) |
-| Transport | `Phphue\Transport\Http` + `Adapter\Curl` | HTTPS, `hue-application-key` header, `{data, errors}` parsing, status-code → exception mapping |
+| Transport | `Phphue\Transport\Http` + `Adapter\Curl` | HTTPS, `hue-application-key` header, `{data, errors}` parsing, status-code → exception mapping; the cURL handle is kept alive so successive requests reuse the same TCP/TLS connection |
 | Resources | `Phphue\Resource\*` | Typed wrappers (`Light`, `Room`, `Zone`, `Scene`, `Device`, ...) built by `ResourceFactory`; unknown types fall back to `GenericResource` |
 | State | `Phphue\State\LightState`, `Color` | PUT-body builder and RGB ⇄ xy / Kelvin ⇄ mirek conversions |
 | Events | `Phphue\EventStream\EventStream`, `Event` | Consumes `GET /eventstream/clip/v2` (SSE) |
