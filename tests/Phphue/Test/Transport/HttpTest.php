@@ -52,17 +52,74 @@ class HttpTest extends TestCase
         $this->assertSame('abc', $data[0]->id);
     }
 
-    public function testErrorsArrayRaisesHueException(): void
+    public function testWarningsAreNonBlockingByDefault(): void
+    {
+        $this->http->setAdapter($this->adapter(
+            json_encode([
+                'errors' => [['description' => 'device has communication issues, command may not have effect']],
+                'data' => [['rid' => 'abc', 'rtype' => 'light']],
+            ]),
+            200
+        ));
+
+        $data = $this->http->sendRequest('/clip/v2/resource/light/abc', Http::METHOD_PUT, ['on' => ['on' => true]]);
+
+        // The bridge accepted the command (2xx + data), so it must not throw.
+        $this->assertCount(1, $data);
+        $this->assertSame(
+            ['device has communication issues, command may not have effect'],
+            $this->http->getLastWarnings()
+        );
+    }
+
+    public function testWarningHandlerReceivesDescriptions(): void
+    {
+        $this->http->setAdapter($this->adapter(
+            json_encode(['errors' => [['description' => 'may not have effect']], 'data' => []]),
+            200
+        ));
+
+        $captured = [];
+        $this->http->setWarningHandler(static function (array $warnings) use (&$captured): void {
+            $captured = $warnings;
+        });
+
+        $this->http->sendRequest('/clip/v2/resource/light/abc', Http::METHOD_PUT, ['on' => ['on' => true]]);
+
+        $this->assertSame(['may not have effect'], $captured);
+    }
+
+    public function testThrowOnWarningsRestoresStrictBehaviour(): void
     {
         $this->http->setAdapter($this->adapter(
             json_encode(['errors' => [['description' => 'device is not on']], 'data' => []]),
             200
         ));
 
+        $this->http->setThrowOnWarnings(true);
+
         $this->expectException(HueException::class);
         $this->expectExceptionMessage('device is not on');
 
         $this->http->sendRequest('/clip/v2/resource/light/abc', Http::METHOD_PUT, ['on' => ['on' => true]]);
+    }
+
+    public function testLastWarningsResetBetweenRequests(): void
+    {
+        $this->http->setAdapter($this->adapter(
+            json_encode(['errors' => [['description' => 'transient warning']], 'data' => []]),
+            200
+        ));
+        $this->http->sendRequest('/clip/v2/resource/light');
+        $this->assertSame(['transient warning'], $this->http->getLastWarnings());
+
+        // A subsequent clean request must clear the previous warnings.
+        $this->http->setAdapter($this->adapter(
+            json_encode(['errors' => [], 'data' => [['type' => 'light', 'id' => 'abc']]]),
+            200
+        ));
+        $this->http->sendRequest('/clip/v2/resource/light');
+        $this->assertSame([], $this->http->getLastWarnings());
     }
 
     public function testUnauthorizedStatusMapsToException(): void

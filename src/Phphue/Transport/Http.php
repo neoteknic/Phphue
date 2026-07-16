@@ -24,6 +24,20 @@ class Http implements TransportInterface
 {
     protected ?AdapterInterface $adapter = null;
 
+    protected bool $throwOnWarnings = false;
+
+    /**
+     * Descriptions of the warnings returned by the most recent request.
+     *
+     * @var array<int,string>
+     */
+    protected array $lastWarnings = [];
+
+    /**
+     * @var (callable(array<int,string>):void)|null
+     */
+    protected $warningHandler = null;
+
     /**
      * Map of HTTP status codes to dedicated exceptions.
      *
@@ -63,22 +77,36 @@ class Http implements TransportInterface
     #[\Override]
     public function sendRequest(string $address, string $method = self::METHOD_GET, array|object|null $body = null): array
     {
+        $this->lastWarnings = [];
+
         $response = $this->getJsonResponse($address, $method, $body);
 
         if (! is_object($response)) {
             throw new ConnectionException('Unexpected response from bridge');
         }
 
-        // CLIP v2 envelope: { "errors": [...], "data": [...] }
+        // CLIP v2 envelope: { "errors": [...], "data": [...] }.
+        // getJsonResponse() already turned every non 2xx status into an
+        // exception, so any envelope errors reaching this point came back with
+        // a 2xx status: the bridge accepted the request but is flagging a soft
+        // issue (e.g. a Zigbee device that "may not have received" the command).
+        // These are warnings - they do not block unless explicitly requested.
         if (isset($response->errors) && is_array($response->errors) && count($response->errors) > 0) {
-            $descriptions = array_map(
-                static fn ($error) => is_object($error) && isset($error->description)
-                    ? (string) $error->description
-                    : 'Unknown error',
-                $response->errors
-            );
+            $warnings = $this->describeErrors($response->errors);
 
-            throw new HueException(implode('; ', $descriptions));
+            if ($warnings === []) {
+                $warnings = ['Unknown error'];
+            }
+
+            if ($this->throwOnWarnings) {
+                throw new HueException(implode('; ', $warnings));
+            }
+
+            $this->lastWarnings = $warnings;
+
+            if ($this->warningHandler !== null) {
+                ($this->warningHandler)($warnings);
+            }
         }
 
         if (isset($response->data) && is_array($response->data)) {
@@ -86,6 +114,31 @@ class Http implements TransportInterface
         }
 
         return [];
+    }
+
+    #[\Override]
+    public function setThrowOnWarnings(bool $throw): static
+    {
+        $this->throwOnWarnings = $throw;
+
+        return $this;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    #[\Override]
+    public function getLastWarnings(): array
+    {
+        return $this->lastWarnings;
+    }
+
+    #[\Override]
+    public function setWarningHandler(?callable $handler): static
+    {
+        $this->warningHandler = $handler;
+
+        return $this;
     }
 
     #[\Override]
@@ -148,20 +201,35 @@ class Http implements TransportInterface
      */
     protected function extractErrorDescription(mixed $decoded): ?string
     {
-        if (is_object($decoded) && isset($decoded->errors) && is_array($decoded->errors)) {
-            $descriptions = [];
-            foreach ($decoded->errors as $error) {
-                if (is_object($error) && isset($error->description)) {
-                    $descriptions[] = (string) $error->description;
-                }
-            }
+        if (! is_object($decoded)) {
+            return null;
+        }
 
-            if ($descriptions) {
-                return implode('; ', $descriptions);
+        $descriptions = $this->describeErrors($decoded->errors ?? null);
+
+        return $descriptions === [] ? null : implode('; ', $descriptions);
+    }
+
+    /**
+     * Collect the human readable descriptions from a CLIP v2 `errors` array.
+     *
+     * @return array<int,string>
+     */
+    protected function describeErrors(mixed $errors): array
+    {
+        if (! is_array($errors)) {
+            return [];
+        }
+
+        $descriptions = [];
+
+        foreach ($errors as $error) {
+            if (is_object($error) && isset($error->description)) {
+                $descriptions[] = (string) $error->description;
             }
         }
 
-        return null;
+        return $descriptions;
     }
 
     /**

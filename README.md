@@ -142,6 +142,37 @@ $client->eventStream(/* maxSeconds */ 0)->listen(function (Event $event) {
 });
 ```
 
+## Warnings
+
+The bridge answers with `{ "errors": [...], "data": [...] }`. A non-2xx HTTP status is
+mapped to an exception (`UnauthorizedException`, `NotFoundException`, `RateLimitException`,
+`BridgeBusyException`, ...). But a **2xx response can still carry `errors`** — these are
+*soft warnings*: the command was accepted, yet the bridge is flagging an issue, e.g. a
+Zigbee light that "has communication issues, command may not have effect".
+
+By default these warnings **do not throw** (the accepted command is not lost). Read them,
+handle them, or restore the strict behaviour:
+
+```php
+$transport = $client->getTransport();
+
+// Push model: called on every warning
+$transport->setWarningHandler(function (array $warnings): void {
+    foreach ($warnings as $description) {
+        error_log('[hue] ' . $description);
+    }
+});
+
+// Pull model: inspect after a call
+$light->setEffect(LightState::EFFECT_SPARKLE);
+foreach ($transport->getLastWarnings() as $description) {
+    // ...
+}
+
+// Opt back into "any error throws a HueException"
+$transport->setThrowOnWarnings(true);
+```
+
 ## TLS
 
 Hue bridges present a self-signed certificate, so certificate verification is **off by
