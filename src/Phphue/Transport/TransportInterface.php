@@ -24,9 +24,9 @@ interface TransportInterface
      *
      * The bridge always answers with `{ "errors": [...], "data": [...] }`.
      * A non 2xx HTTP status raises an exception. A non-empty `errors` array
-     * returned with a 2xx status is treated as a soft warning: the bridge
-     * accepted the request but is flagging an issue (e.g. a Zigbee device that
-     * "may not have received" the command). Warnings do not raise an exception
+     * returned with a 2xx status and non-empty data is treated as a warning
+     * describing a potentially partial success. Errors with empty data throw.
+     * Warnings accompanying data do not raise an exception
      * unless {@see setThrowOnWarnings()} is enabled; they are exposed through
      * {@see getLastWarnings()} and the warning handler instead.
      *
@@ -39,7 +39,7 @@ interface TransportInterface
     public function sendRequest(string $address, string $method = self::METHOD_GET, array|object|null $body = null): array;
 
     /**
-     * Choose whether soft warnings (a non-empty `errors` array returned with a
+     * Choose whether warnings (a non-empty `errors` array alongside data with a
      * 2xx status) raise a HueException. Off by default: warnings are recorded
      * and dispatched to the warning handler instead of blocking the command.
      */
@@ -65,6 +65,7 @@ interface TransportInterface
      *
      * Used for endpoints that do not follow the CLIP v2 envelope, such as the
      * legacy `POST /api` used to create an application key.
+     * HTTP/network failures and invalid JSON still raise an exception.
      *
      * @param array<string,mixed>|object|null $body Body data
      *

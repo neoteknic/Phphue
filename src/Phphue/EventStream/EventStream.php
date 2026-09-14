@@ -38,6 +38,9 @@ class EventStream
         if (! extension_loaded('curl')) {
             throw new \BadFunctionCallException('The cURL extension is required for the event stream.');
         }
+        if ($maxSeconds < 0) {
+            throw new \InvalidArgumentException('Maximum listening duration must be at least 0');
+        }
     }
 
     /**
@@ -55,27 +58,23 @@ class EventStream
         $this->stopRequested = false;
 
         $curl = curl_init();
-        $startedAt = time();
 
         curl_setopt($curl, CURLOPT_URL, $this->buildUrl());
         curl_setopt($curl, CURLOPT_HTTPGET, true);
         curl_setopt($curl, CURLOPT_HTTPHEADER, $this->buildHeaders());
         curl_setopt($curl, CURLOPT_TIMEOUT, $this->maxSeconds);
+        curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 4);
 
         $verify = $this->client->getSslVerify();
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, $verify);
         curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, $verify ? 2 : 0);
 
-        curl_setopt($curl, CURLOPT_WRITEFUNCTION, function ($handle, string $chunk) use ($startedAt): int {
+        curl_setopt($curl, CURLOPT_WRITEFUNCTION, function ($handle, string $chunk): int {
             $this->buffer .= $chunk;
             $this->drainBuffer();
 
             if ($this->stopRequested) {
-                return -1; // aborts curl_exec
-            }
-
-            if ($this->maxSeconds > 0 && (time() - $startedAt) >= $this->maxSeconds) {
-                return -1;
+                return 0; // CURLOPT_WRITEFUNCTION aborts with CURLE_WRITE_ERROR.
             }
 
             return strlen($chunk);
@@ -84,10 +83,18 @@ class EventStream
         $ok = curl_exec($curl);
         $errno = curl_errno($curl);
         $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($curl);
 
-        // CURLE_ABORTED_BY_CALLBACK (42) and operation timeout (28) are expected stops.
-        if ($ok === false && ! in_array($errno, [0, 28, 42], true)) {
-            throw new ConnectionException('Event stream connection failed (curl errno ' . $errno . ')');
+        $this->checkConnectionResult($ok, $errno, $status, $error);
+    }
+
+    protected function checkConnectionResult(string|bool $ok, int $errno, int $status, string $error): void
+    {
+        $requestedStop = $this->stopRequested && $errno === CURLE_WRITE_ERROR;
+        $durationReached = $this->maxSeconds > 0 && $status >= 200 && $status < 300
+            && $errno === CURLE_OPERATION_TIMEDOUT;
+        if ($ok === false && ! $requestedStop && ! $durationReached) {
+            throw new ConnectionException("Event stream connection failed (curl errno {$errno}): {$error}", $errno);
         }
 
         if ($status !== 0 && ($status < 200 || $status >= 300)) {
@@ -154,7 +161,9 @@ class EventStream
 
             if ($result === false) {
                 $this->stopRequested = true;
+            }
 
+            if ($this->stopRequested) {
                 return;
             }
         }

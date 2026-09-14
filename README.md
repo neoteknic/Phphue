@@ -65,6 +65,58 @@ $light->setColorTemperature(300);   // mired/mirek
 $light->off();
 ```
 
+### Fast updates
+
+Keep the same `Client` for successive commands in a process so it can reuse its
+TCP/TLS connection. When you already know the resource ID, use the write helpers:
+they send **one PUT with no preliminary GET**.
+
+```php
+$state = (new LightState())->on()->brightness(80)->colorRGB(255, 120, 0);
+$client->setLightState($lightId, $state);
+
+// One command for an entire room/zone; use its grouped_light service ID.
+$client->setGroupedLightState($groupedLightId, $state);
+
+// A room/zone/home already loaded includes the service reference.
+$room->applyState($state);  // no GET of grouped_light, one PUT for the group
+$groupedLightId = $room->getGroupedLightId(); // local lookup, no request
+
+// Activate an existing scene without first fetching it.
+$client->recallScene($sceneId);
+```
+
+For an existing light or grouped light, `applyState()` also sends one PUT. The
+callback variant prepares the changes locally before sending:
+
+```php
+$light->updateState(fn (LightState $state) => $state
+    ->on()
+    ->brightness(80)
+    ->colorRGB(255, 120, 0)
+);
+```
+
+An empty state sends nothing; a callback that throws sends nothing. In contrast,
+chaining the immediate resource setters still sends one PUT per setter. For common
+changes across lights, prefer a grouped light; for a stored multi-light appearance,
+recall a scene. These helpers do not create groups/scenes automatically.
+
+No transition is forced: omit `transition()` to retain the bridge default, or use
+`transition(0)` when an immediate change is wanted. The REST request timeout defaults
+to **4 seconds** and can still be configured through the `Curl` adapter constructor.
+There are no automatic retries: a timed-out write may already have reached the bridge.
+
+Resource getters read the last fetched snapshot, not proof that a PUT has completed
+on the lamp. Writes do not trigger a refresh or mutate that snapshot. To minimize
+reads in a long-running application, load initial state once and merge SSE update
+fields into an application-owned cache, preserving absent fields and replacing
+explicit nulls/arrays. Keep requested state separate from bridge-reported state,
+and resynchronize after a stream reconnection. `Event::getResources()` wraps the
+event's partial data; a missing boolean field must not be interpreted as a newly
+reported `false`. `getLight()` and `getGroupedLight()` retain their explicit GET
+semantics; use the write helpers on the command path.
+
 ### Dynamic effects
 
 The Hue API V2 exposes built-in dynamic effects (`candle`, `fire`, `sparkle`,
@@ -146,11 +198,16 @@ $client->eventStream(/* maxSeconds */ 0)->listen(function (Event $event) {
 
 The bridge answers with `{ "errors": [...], "data": [...] }`. A non-2xx HTTP status is
 mapped to an exception (`UnauthorizedException`, `NotFoundException`, `RateLimitException`,
-`BridgeBusyException`, ...). But a **2xx response can still carry `errors`** — these are
-*soft warnings*: the command was accepted, yet the bridge is flagging an issue, e.g. a
-Zigbee light that "has communication issues, command may not have effect".
+`BridgeBusyException`, ...). A **2xx response can still carry `errors`**. When `data`
+is non-empty, these are exposed as warnings describing a potentially partial success,
+e.g. a Zigbee light that "has communication issues, command may not have effect".
+Errors with empty `data` always throw `HueException`, even in non-strict mode.
+Invalid JSON or a malformed CLIP v2 envelope throws `ConnectionException`; invalid
+outgoing JSON throws `JsonException` before opening a connection. Network errors
+include cURL's error code and description. `sendRaw()` also checks HTTP/network/JSON
+errors, while retaining the legacy JSON response format.
 
-By default these warnings **do not throw** (the accepted command is not lost). Read them,
+By default warnings accompanying data **do not throw**. Read them,
 handle them, or restore the strict behaviour:
 
 ```php
@@ -180,8 +237,13 @@ default**. To pin the official Hue CA, enable it and pass the bundle to the adap
 
 ```php
 $client = new Client('192.168.1.10', $key, sslVerify: true);
-$client->getTransport()->setAdapter(new \Phphue\Transport\Adapter\Curl(true, 10, '/path/to/huebridge_cacert.pem'));
+$client->getTransport()->setAdapter(new \Phphue\Transport\Adapter\Curl(true, 4, '/path/to/huebridge_cacert.pem'));
 ```
+
+Changing `Client::setSslVerify()` updates an existing cURL adapter and disconnects
+its old connection, preserving its timeout and CA configuration. Custom adapters
+must be configured directly; the HTTP transport throws if this setter cannot update
+their TLS policy.
 
 ## Examples
 

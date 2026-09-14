@@ -7,6 +7,7 @@
 namespace Phphue\Transport\Adapter;
 
 use CurlHandle;
+use Phphue\Transport\Exception\ConnectionException;
 
 /**
  * cURL Http adapter
@@ -24,12 +25,24 @@ class Curl implements AdapterInterface
      * @param string|null $caFile Optional CA bundle to pin the Hue bridge certificate
      */
     public function __construct(
-        protected readonly bool $sslVerify = false,
-        protected readonly int $timeout = 10,
+        protected bool $sslVerify = false,
+        protected readonly int $timeout = 4,
         protected readonly ?string $caFile = null
     ) {
         if (! extension_loaded('curl')) {
             throw new \BadFunctionCallException('The cURL extension is required.');
+        }
+        if ($timeout < 0) {
+            throw new \InvalidArgumentException('Timeout must be at least 0');
+        }
+    }
+
+    public function setSslVerify(bool $sslVerify): void
+    {
+        if ($this->sslVerify !== $sslVerify) {
+            // A connection established without verification must not be reused.
+            $this->disconnect();
+            $this->sslVerify = $sslVerify;
         }
     }
 
@@ -78,7 +91,14 @@ class Curl implements AdapterInterface
 
         curl_setopt($this->curl, CURLOPT_HTTPHEADER, $requestHeaders);
 
-        return curl_exec($this->curl);
+        $result = curl_exec($this->curl);
+        if ($result === false) {
+            $errno = curl_errno($this->curl);
+            $error = curl_error($this->curl);
+            throw new ConnectionException("Hue request failed (curl errno {$errno}): {$error}", $errno);
+        }
+
+        return $result;
     }
 
     #[\Override]

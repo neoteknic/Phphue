@@ -74,6 +74,15 @@ class Http implements TransportInterface
         return $this;
     }
 
+    public function setSslVerify(bool $sslVerify): void
+    {
+        if ($this->adapter instanceof DefaultAdapter) {
+            $this->adapter->setSslVerify($sslVerify);
+        } elseif ($this->adapter !== null) {
+            throw new \LogicException('Configure TLS verification on the custom adapter directly');
+        }
+    }
+
     #[\Override]
     public function sendRequest(string $address, string $method = self::METHOD_GET, array|object|null $body = null): array
     {
@@ -81,39 +90,41 @@ class Http implements TransportInterface
 
         $response = $this->getJsonResponse($address, $method, $body);
 
-        if (! is_object($response)) {
-            throw new ConnectionException('Unexpected response from bridge');
+        if (! is_object($response)
+            || ! isset($response->errors, $response->data)
+            || ! is_array($response->errors) || ! array_is_list($response->errors)
+            || ! is_array($response->data) || ! array_is_list($response->data)
+        ) {
+            throw new ConnectionException('Invalid CLIP v2 response envelope from bridge');
         }
 
-        // CLIP v2 envelope: { "errors": [...], "data": [...] }.
-        // getJsonResponse() already turned every non 2xx status into an
-        // exception, so any envelope errors reaching this point came back with
-        // a 2xx status: the bridge accepted the request but is flagging a soft
-        // issue (e.g. a Zigbee device that "may not have received" the command).
-        // These are warnings - they do not block unless explicitly requested.
-        if (isset($response->errors) && is_array($response->errors) && count($response->errors) > 0) {
+        foreach (array_merge($response->errors, $response->data) as $item) {
+            if (! $item instanceof \stdClass) {
+                throw new ConnectionException('Invalid CLIP v2 response item from bridge');
+            }
+        }
+
+        // Errors alongside returned data can describe a partial success.
+        // Errors with no data must never be reported as a successful command.
+        if ($response->errors !== []) {
             $warnings = $this->describeErrors($response->errors);
 
             if ($warnings === []) {
                 $warnings = ['Unknown error'];
             }
 
-            if ($this->throwOnWarnings) {
+            $this->lastWarnings = $warnings;
+
+            if ($this->throwOnWarnings || $response->data === []) {
                 throw new HueException(implode('; ', $warnings));
             }
-
-            $this->lastWarnings = $warnings;
 
             if ($this->warningHandler !== null) {
                 ($this->warningHandler)($warnings);
             }
         }
 
-        if (isset($response->data) && is_array($response->data)) {
-            return $response->data;
-        }
-
-        return [];
+        return $response->data;
     }
 
     #[\Override]
@@ -144,18 +155,9 @@ class Http implements TransportInterface
     #[\Override]
     public function sendRaw(string $address, string $method = self::METHOD_GET, array|object|null $body = null): mixed
     {
-        $url = $this->buildRequestUrl($address);
+        $this->lastWarnings = [];
 
-        $this->getAdapter()->open();
-        $results = $this->getAdapter()->send(
-            $url,
-            $method,
-            $this->encodeBody($body),
-            $this->buildHeaders()
-        );
-        $this->getAdapter()->close();
-
-        return json_decode((string) $results);
+        return $this->getJsonResponse($address, $method, $body);
     }
 
     /**
@@ -168,18 +170,18 @@ class Http implements TransportInterface
     protected function getJsonResponse(string $address, string $method, array|object|null $body): mixed
     {
         $url = $this->buildRequestUrl($address);
+        $encodedBody = $this->encodeBody($body);
+        $adapter = $this->getAdapter();
 
-        $this->getAdapter()->open();
-        $results = $this->getAdapter()->send(
-            $url,
-            $method,
-            $this->encodeBody($body),
-            $this->buildHeaders()
-        );
-        $status = $this->getAdapter()->getHttpStatusCode();
-        $this->getAdapter()->close();
+        $adapter->open();
+        try {
+            $results = $adapter->send($url, $method, $encodedBody, $this->buildHeaders());
+            $status = $adapter->getHttpStatusCode();
+        } finally {
+            $adapter->close();
+        }
 
-        if ($status === 0) {
+        if ($results === false || $status === 0) {
             throw new ConnectionException('Could not connect to the Hue bridge');
         }
 
@@ -191,6 +193,10 @@ class Http implements TransportInterface
             $exceptionClass = static::$statusExceptionMap[$status] ?? HueException::class;
 
             throw new $exceptionClass($description, $status);
+        }
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new ConnectionException('Invalid JSON response from bridge: ' . json_last_error_msg());
         }
 
         return $decoded;
@@ -255,7 +261,7 @@ class Http implements TransportInterface
             return null;
         }
 
-        return (string) json_encode($body);
+        return json_encode($body, JSON_THROW_ON_ERROR);
     }
 
     protected function buildRequestUrl(string $address): string

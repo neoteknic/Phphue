@@ -75,6 +75,20 @@ trait ControlsLight
         return $this;
     }
 
+    /**
+     * Build several changes locally and send a single PUT after the callback.
+     * No request is sent if the callback throws or leaves the state empty.
+     *
+     * @param callable(LightState):mixed $configure
+     */
+    public function updateState(callable $configure): static
+    {
+        $state = new LightState();
+        $configure($state);
+
+        return $this->applyState($state);
+    }
+
     public function setOn(bool $flag = true): static
     {
         return $this->applyState((new LightState())->on($flag));

@@ -7,6 +7,7 @@
 namespace Phphue\Resource\Concern;
 
 use Phphue\Resource\GroupedLight;
+use Phphue\State\LightState;
 
 /**
  * Shared accessors for resources exposing `children` and `services` references
@@ -56,15 +57,44 @@ trait HasServices
      */
     public function getGroupedLight(): ?GroupedLight
     {
-        $service = array_first($this->getServicesByType('grouped_light'));
+        $id = $this->getGroupedLightId();
 
-        if (! isset($service->rid)) {
+        if ($id === null) {
             return null;
         }
 
         /** @var GroupedLight $groupedLight */
-        $groupedLight = $this->client->getResourceById('grouped_light', (string) $service->rid);
+        $groupedLight = $this->client->getResourceById('grouped_light', $id);
 
         return $groupedLight;
+    }
+
+    /**
+     * Read the service ID from this snapshot without making a request.
+     */
+    public function getGroupedLightId(): ?string
+    {
+        $service = array_first($this->getServicesByType('grouped_light'));
+
+        return isset($service->rid) ? (string) $service->rid : null;
+    }
+
+    /**
+     * Control this room/zone/home in one PUT, without fetching grouped_light.
+     */
+    public function applyState(LightState $state): static
+    {
+        if ($state->isEmpty()) {
+            return $this;
+        }
+
+        $id = $this->getGroupedLightId();
+        if ($id === null) {
+            throw new \LogicException('This resource has no grouped_light service');
+        }
+
+        $this->client->setGroupedLightState($id, $state);
+
+        return $this;
     }
 }

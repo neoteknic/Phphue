@@ -31,6 +31,7 @@ use Phphue\Resource\Scene;
 use Phphue\Resource\SmartScene;
 use Phphue\Resource\Temperature;
 use Phphue\Resource\Zone;
+use Phphue\State\LightState;
 use Phphue\Transport\Http;
 use Phphue\Transport\TransportInterface;
 
@@ -86,6 +87,9 @@ class Client
 
     public function setSslVerify(bool $sslVerify): static
     {
+        if ($this->transport instanceof Http) {
+            $this->transport->setSslVerify($sslVerify);
+        }
         $this->sslVerify = $sslVerify;
 
         return $this;
@@ -162,6 +166,38 @@ class Client
     public function updateResource(string $type, string $id, array|object $body): array
     {
         return $this->sendCommand(new UpdateResource($type, $id, $body));
+    }
+
+    /**
+     * Apply all light properties in one PUT, without fetching the light first.
+     *
+     * @return array<int,\stdClass>
+     */
+    public function setLightState(string $id, LightState $state): array
+    {
+        return $state->isEmpty() ? [] : $this->updateResource('light', $id, $state->toArray());
+    }
+
+    /**
+     * Control a whole group in one PUT. Use its grouped_light service ID.
+     *
+     * @return array<int,\stdClass>
+     */
+    public function setGroupedLightState(string $id, LightState $state): array
+    {
+        return $state->isEmpty() ? [] : $this->updateResource('grouped_light', $id, $state->toArray());
+    }
+
+    /**
+     * Recall a stored scene in one PUT, without fetching it first.
+     *
+     * @return array<int,\stdClass>
+     */
+    public function recallScene(string $id, string $action = Scene::ACTION_ACTIVE, ?int $durationMs = null): array
+    {
+        $scene = new Scene($this, (object) ['id' => $id, 'type' => 'scene']);
+
+        return $scene->recall($action, $durationMs);
     }
 
     /**
