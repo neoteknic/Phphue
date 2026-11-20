@@ -7,6 +7,7 @@
 namespace Phphue\Test\Transport\Adapter;
 
 use CurlHandle;
+use Phphue\Test\Support\LocalHttpServer;
 use Phphue\Transport\Adapter\Curl;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
@@ -59,5 +60,60 @@ class CurlTest extends TestCase
         $adapter->disconnect();
 
         $this->assertNull($adapter->getCurl());
+    }
+
+    public function testResponseInfoIsEmptyBeforeAnyRequest(): void
+    {
+        $adapter = new Curl();
+
+        $this->assertSame(0, $adapter->getHttpStatusCode());
+        $this->assertNull($adapter->getContentType());
+
+        $adapter->open();
+        $adapter->disconnect();
+        $this->assertSame(0, $adapter->getHttpStatusCode());
+    }
+
+    public function testSendWithoutOpenCreatesHandleOnDemand(): void
+    {
+        $server = new LocalHttpServer();
+        $adapter = new Curl();
+
+        $body = $adapter->send($server->url . '/resource', 'GET');
+
+        $this->assertIsString($body);
+        $this->assertSame('GET', json_decode($body)->data[0]->method);
+        $this->assertSame(200, $adapter->getHttpStatusCode());
+        $this->assertSame('application/json', $adapter->getContentType());
+    }
+
+    public function testEmptyAddressIsRejectedBeforeAnyIo(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new Curl())->send('', 'GET');
+    }
+
+    public function testExposesItsConfiguration(): void
+    {
+        $adapter = new Curl(true, 7, 'hue-ca.pem', persistent: true);
+
+        $this->assertTrue($adapter->isSslVerify());
+        $this->assertSame(7, $adapter->getTimeout());
+        $this->assertSame('hue-ca.pem', $adapter->getCaFile());
+        $this->assertTrue($adapter->isPersistent());
+
+        $default = new Curl();
+        $this->assertFalse($default->isSslVerify());
+        $this->assertSame(4, $default->getTimeout());
+        $this->assertNull($default->getCaFile());
+        $this->assertFalse($default->isPersistent());
+    }
+
+    public function testNegativeTimeoutIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new Curl(timeout: -1);
     }
 }

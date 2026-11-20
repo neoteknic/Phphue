@@ -25,6 +25,68 @@ class NetworkTest extends TestCase
         $this->assertSame($put->connection, $get->connection);
     }
 
+    public function testLargeBodyIsSentWithoutExpectContinueStall(): void
+    {
+        $server = new LocalHttpServer();
+        $client = new Client($server->url, 'app-key');
+        $started = microtime(true);
+        // libcurl announces bodies above its threshold (1 MB on recent versions,
+        // 1 KB on older ones) with "Expect: 100-continue" and then waits up to 1 s.
+        $echo = $client->getTransport()->sendRequest('/resource', 'PUT', ['blob' => str_repeat('a', 1_100_000)])[0];
+        $elapsed = microtime(true) - $started;
+
+        $headers = (array) $echo->headers;
+        $this->assertArrayNotHasKey('expect', $headers);
+        $this->assertSame('application/json', $headers['content-type']);
+        $this->assertSame('application/json', $headers['accept']);
+        $this->assertSame('app-key', $headers['hue-application-key']);
+        $this->assertSame(1_100_000 + strlen('{"blob":""}'), strlen($echo->body));
+        $this->assertLessThan(0.9, $elapsed);
+    }
+
+    public function testBodylessRequestsSendNoContentType(): void
+    {
+        $server = new LocalHttpServer();
+        $echo = (new Client($server->url))->getTransport()->sendRequest('/resource', 'DELETE')[0];
+
+        $headers = (array) $echo->headers;
+        $this->assertSame('DELETE', $echo->method);
+        $this->assertArrayNotHasKey('content-type', $headers);
+        $this->assertArrayNotHasKey('hue-application-key', $headers);
+    }
+
+    public function testPersistentAdaptersReuseTheConnectionAcrossClients(): void
+    {
+        $server = new LocalHttpServer();
+
+        // First "web request": its client and adapter are gone once it completes.
+        $first = new Client($server->url);
+        $first->getTransport()->setAdapter(new Curl(persistent: true));
+        $before = $first->getTransport()->sendRequest('/resource')[0]->connection;
+        unset($first);
+        gc_collect_cycles(); // Client and Http reference each other.
+
+        $second = new Client($server->url);
+        $second->getTransport()->setAdapter(new Curl(persistent: true));
+        $after = $second->getTransport()->sendRequest('/resource')[0]->connection;
+
+        $this->assertSame($before, $after);
+    }
+
+    public function testNonPersistentAdaptersOpenTheirOwnConnection(): void
+    {
+        $server = new LocalHttpServer();
+
+        $first = new Client($server->url);
+        $before = $first->getTransport()->sendRequest('/resource')[0]->connection;
+        unset($first);
+        gc_collect_cycles(); // Client and Http reference each other.
+
+        $after = (new Client($server->url))->getTransport()->sendRequest('/resource')[0]->connection;
+
+        $this->assertNotSame($before, $after);
+    }
+
     public function testDefaultTimeoutIsFourSecondsAndIncludesCurlError(): void
     {
         $server = new LocalHttpServer();

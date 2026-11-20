@@ -41,7 +41,17 @@ while ($connection = @stream_socket_accept($server, 10)) {
             sleep(6);
             break;
         }
-        if (str_ends_with($path, '/eventstream/clip/v2')) {
+        $status = '200 OK';
+        if (str_starts_with($path, '/forbidden-sse')) {
+            // An error body that looks like an SSE frame must never be dispatched.
+            $status = '403 Forbidden';
+            $response = 'data: ' . json_encode([['id' => 'leak', 'type' => 'update', 'data' => []]]) . "\n\n";
+            $contentType = 'text/event-stream';
+        } elseif (str_starts_with($path, '/forbidden')) {
+            $status = '403 Forbidden';
+            $response = json_encode(['errors' => [['description' => 'unauthorized user']], 'data' => []]);
+            $contentType = 'application/json';
+        } elseif (str_ends_with($path, '/eventstream/clip/v2')) {
             $events = [
                 ['id' => 'event-1', 'type' => 'update', 'data' => []],
                 ['id' => 'event-2', 'type' => 'update', 'data' => []],
@@ -51,10 +61,11 @@ while ($connection = @stream_socket_accept($server, 10)) {
         } else {
             $response = json_encode(['errors' => [], 'data' => [[
                 'method' => $method, 'body' => $body, 'connection' => $connectionId,
+                'headers' => $headers,
             ]]]);
             $contentType = 'application/json';
         }
-        fwrite($connection, "HTTP/1.1 200 OK\r\nContent-Type: {$contentType}\r\nContent-Length: " . strlen($response) . "\r\n\r\n" . $response);
+        fwrite($connection, "HTTP/1.1 {$status}\r\nContent-Type: {$contentType}\r\nContent-Length: " . strlen($response) . "\r\n\r\n" . $response);
         fflush($connection);
     }
     fclose($connection);

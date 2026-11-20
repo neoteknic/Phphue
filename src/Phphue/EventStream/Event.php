@@ -54,7 +54,12 @@ class Event
     {
         $data = $this->payload->data ?? [];
 
-        return is_array($data) ? $data : [];
+        if (! is_array($data)) {
+            return [];
+        }
+
+        // Skip malformed items so getResources() never fails on them.
+        return array_values(array_filter($data, static fn (mixed $item): bool => $item instanceof \stdClass));
     }
 
     /**

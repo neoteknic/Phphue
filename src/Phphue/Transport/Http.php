@@ -60,11 +60,7 @@ class Http implements TransportInterface
      */
     public function getAdapter(): AdapterInterface
     {
-        if (! $this->adapter) {
-            $this->setAdapter(new DefaultAdapter($this->client->getSslVerify()));
-        }
-
-        return $this->adapter;
+        return $this->adapter ??= new DefaultAdapter($this->client->getSslVerify());
     }
 
     public function setAdapter(AdapterInterface $adapter): static
@@ -98,9 +94,11 @@ class Http implements TransportInterface
             throw new ConnectionException('Invalid CLIP v2 response envelope from bridge');
         }
 
-        foreach (array_merge($response->errors, $response->data) as $item) {
-            if (! $item instanceof \stdClass) {
-                throw new ConnectionException('Invalid CLIP v2 response item from bridge');
+        foreach ([$response->errors, $response->data] as $items) {
+            foreach ($items as $item) {
+                if (! $item instanceof \stdClass) {
+                    throw new ConnectionException('Invalid CLIP v2 response item from bridge');
+                }
             }
         }
 
@@ -230,7 +228,7 @@ class Http implements TransportInterface
         $descriptions = [];
 
         foreach ($errors as $error) {
-            if (is_object($error) && isset($error->description)) {
+            if (is_object($error) && isset($error->description) && is_scalar($error->description)) {
                 $descriptions[] = (string) $error->description;
             }
         }
@@ -266,12 +264,6 @@ class Http implements TransportInterface
 
     protected function buildRequestUrl(string $address): string
     {
-        $host = rtrim($this->client->getHost(), '/');
-
-        if (preg_match('#^https?://#i', $host) === 1) {
-            return "{$host}{$address}";
-        }
-
-        return "https://{$host}{$address}";
+        return $this->client->getBaseUrl() . $address;
     }
 }

@@ -45,7 +45,12 @@
         }
     },
     "scripts": {
-        "phpstan": "phpstan analyse src --no-progress --level=6",
-        "phpunit": "phpunit"
+        "phpstan": "phpstan analyse --no-progress",
+        "phpunit": "phpunit",
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "test": [
+            "@phpstan",
+            "@phpunit"
+        ]
     }
 }

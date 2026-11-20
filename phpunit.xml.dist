@@ -6,6 +6,12 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          cacheDirectory=".phpunit.cache"
          requireCoverageMetadata="false"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnWarning="true"
 >
   <testsuites>
     <testsuite name="Phphue Test Suite">
@@ -15,7 +21,9 @@
 
   <logging/>
 
-  <source>
+  <!-- Only deprecations/notices raised by (or directly through) the library fail the run, so a
+       new PHP release (e.g. 8.6) flags our code without tripping on vendor code. -->
+  <source ignoreIndirectDeprecations="true" restrictNotices="true" restrictWarnings="true">
     <include>
       <directory>./src</directory>
     </include>

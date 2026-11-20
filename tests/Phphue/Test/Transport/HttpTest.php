@@ -136,6 +136,25 @@ class HttpTest extends TestCase
         $this->http->sendRequest('/clip/v2/resource/light');
     }
 
+    public function testMalformedErrorDescriptionFallsBackToStatus(): void
+    {
+        $this->http->setAdapter($this->adapter('{"errors":[{"description":{"nested":true}}],"data":[]}', 500));
+
+        $this->expectException(HueException::class);
+        $this->expectExceptionMessage('HTTP 500');
+
+        $this->http->sendRequest('/clip/v2/resource/light');
+    }
+
+    public function testDefaultAdapterFollowsClientTlsPolicy(): void
+    {
+        $client = new Client('192.168.1.10', 'key', sslVerify: true);
+        $adapter = (new Http($client))->getAdapter();
+
+        $this->assertInstanceOf(\Phphue\Transport\Adapter\Curl::class, $adapter);
+        $this->assertTrue($adapter->isSslVerify());
+    }
+
     public function testSendRawReturnsDecodedBody(): void
     {
         $this->http->setAdapter($this->adapter(

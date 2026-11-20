@@ -44,6 +44,16 @@ class LightTest extends TestCase
         $this->assertSame('C', $light->getGamutType());
     }
 
+    public function testPartialColorSnapshotHasNoXy(): void
+    {
+        // An SSE update may carry only part of the color object.
+        $data = (object) ['type' => 'light', 'id' => 'light-1', 'color' => (object) ['xy' => (object) ['x' => 0.5]]];
+        $light = new Light($this->createStub(Client::class), $data);
+
+        $this->assertNull($light->getColorXY());
+        $this->assertNull($light->getColorRGB());
+    }
+
     public function testSetOnSendsUpdate(): void
     {
         $client = $this->createMock(Client::class);

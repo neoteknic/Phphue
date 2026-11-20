@@ -31,7 +31,7 @@ trait ControlsLight
      */
     public function getColorXY(): ?array
     {
-        if (! isset($this->data->color->xy)) {
+        if (! isset($this->data->color->xy->x, $this->data->color->xy->y)) {
             return null;
         }
 

@@ -1,5 +1,7 @@
 parameters:
-    level: 6
+    level: 8
+    # Analyse against the lowest supported runtime so no PHP 8.6-only syntax or
+    # function slips in; PHP 8.6 itself is covered by the CI test matrix.
     phpVersion: 80500
     paths:
         - src

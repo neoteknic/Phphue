@@ -42,6 +42,11 @@ class Client
 {
     protected string $host;
 
+    /**
+     * Scheme + host without trailing slash, computed once per host change.
+     */
+    protected string $baseUrl;
+
     protected ?string $applicationKey;
 
     protected bool $sslVerify;
@@ -61,11 +66,34 @@ class Client
         return $this->host;
     }
 
+    /**
+     * @throws \InvalidArgumentException When the host is empty
+     */
     public function setHost(string $host): static
     {
+        $base = rtrim(trim($host), '/');
+
+        // "https://" alone is rtrimmed to "https:".
+        if ($base === '' || preg_match('#^https?:$#i', $base) === 1) {
+            throw new \InvalidArgumentException('The bridge host must not be empty');
+        }
+
+        if (preg_match('#^https?://#i', $base) !== 1) {
+            $base = "https://{$base}";
+        }
+
         $this->host = $host;
+        $this->baseUrl = $base;
 
         return $this;
+    }
+
+    /**
+     * Base URL of the bridge ("https://192.168.1.10"), without trailing slash.
+     */
+    public function getBaseUrl(): string
+    {
+        return $this->baseUrl;
     }
 
     public function getApplicationKey(): ?string

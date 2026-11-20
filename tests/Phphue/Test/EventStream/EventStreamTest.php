@@ -43,6 +43,36 @@ class EventStreamTest extends TestCase
         $this->assertSame(0, $count);
     }
 
+    public function testHttpErrorReportsStatusAndBridgeDescription(): void
+    {
+        $server = new LocalHttpServer();
+
+        try {
+            (new Client($server->url . '/forbidden'))->eventStream(2)->listen(static fn () => false);
+            $this->fail('A rejected stream must throw');
+        } catch (ConnectionException $e) {
+            $this->assertSame(403, $e->getCode());
+            $this->assertSame('Event stream returned HTTP 403: unauthorized user', $e->getMessage());
+        }
+    }
+
+    public function testHttpErrorBodyIsNeverDispatchedAsEvents(): void
+    {
+        $server = new LocalHttpServer();
+        $count = 0;
+
+        try {
+            (new Client($server->url . '/forbidden-sse'))->eventStream(2)->listen(function () use (&$count): void {
+                ++$count;
+            });
+            $this->fail('A rejected stream must throw');
+        } catch (ConnectionException $e) {
+            $this->assertSame(403, $e->getCode());
+        }
+
+        $this->assertSame(0, $count);
+    }
+
     public function testTimeoutBeforeResponseIsNotHiddenAsNormalStop(): void
     {
         $server = new LocalHttpServer();

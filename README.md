@@ -17,7 +17,7 @@ stream.
 
 ## Requirements
 
-- PHP 8.5+
+- PHP 8.5+ (tested on PHP 8.5 and 8.6)
 - `ext-curl` (default transport adapter and event stream)
 
 ## Installation
@@ -107,6 +107,23 @@ No transition is forced: omit `transition()` to retain the bridge default, or us
 to **4 seconds** and can still be configured through the `Curl` adapter constructor.
 There are no automatic retries: a timed-out write may already have reached the bridge.
 
+#### Reusing the connection across web requests (PHP-FPM)
+
+A new `Client` per web request normally pays for a fresh TCP + TLS handshake with the
+bridge. Enable the persistent mode of the cURL adapter to keep the connection pool, DNS
+and TLS session caches in a persistent cURL share handle (PHP 8.5+), reused by every
+request served by the same worker:
+
+```php
+use Phphue\Transport\Adapter\Curl;
+
+$client = new Client($bridgeIp, $key);
+$client->getTransport()->setAdapter(new Curl(persistent: true));
+```
+
+Each worker then keeps one idle connection open to the bridge, which only serves a
+limited number of clients: enable it with a small worker pool.
+
 Resource getters read the last fetched snapshot, not proof that a PUT has completed
 on the lamp. Writes do not trigger a refresh or mutate that snapshot. To minimize
 reads in a long-running application, load initial state once and merge SSE update
@@ -194,6 +211,14 @@ $client->eventStream(/* maxSeconds */ 0)->listen(function (Event $event) {
 });
 ```
 
+The stream reuses the TLS policy (verification and pinned CA) of the cURL adapter. A
+bridge that disappears without closing the connection (power cut, network loss) is
+detected through TCP keep-alive probes within about 25 seconds (libcurl 8.9+, up to about
+a minute with older versions, which use the OS probe count), so `listen()`
+throws a `ConnectionException` instead of hanging forever; reconnect and resynchronize
+then. An HTTP error (e.g. invalid application key) throws a `ConnectionException` whose
+code is the HTTP status.
+
 ## Warnings
 
 The bridge answers with `{ "errors": [...], "data": [...] }`. A non-2xx HTTP status is
@@ -261,7 +286,9 @@ HUE_BRIDGE=192.168.1.10 HUE_APP_KEY=xxxxx php examples/event-stream.php
 ```bash
 composer install
 composer phpunit     # unit tests
-composer phpstan     # static analysis (level 6)
+composer phpstan     # static analysis (level 8)
+composer cs          # coding style (dry run)
+composer test        # phpstan + phpunit
 ```
 
 ## License
